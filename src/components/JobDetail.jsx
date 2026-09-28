@@ -11,17 +11,10 @@ export default function JobDetail({ job, onClose, onEdit, onDelete }) {
 
   useEffect(() => {
     let cancelled = false;
-    const urls = [];
     db.getMediaForJob(job.id).then((items) => {
-      if (cancelled) return;
-      const withUrls = items.map((m) => {
-        const url = URL.createObjectURL(m.blob);
-        urls.push(url);
-        return { ...m, url };
-      });
-      setMedia(withUrls);
+      if (!cancelled) setMedia(items);
     });
-    return () => { cancelled = true; urls.forEach((u) => URL.revokeObjectURL(u)); };
+    return () => { cancelled = true; };
   }, [job.id]);
 
   const profit = profitOf(job);

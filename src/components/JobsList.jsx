@@ -11,21 +11,16 @@ export default function JobsList({ jobs, onOpen, onNew }) {
 
   useEffect(() => {
     let cancelled = false;
-    const urls = [];
     (async () => {
+      const ids = jobs.slice(0, 60).map((j) => j.id);
+      const items = await db.getMediaForJobs(ids);
       const map = {};
-      for (const job of jobs.slice(0, 60)) {
-        const items = await db.getMediaForJob(job.id);
-        const first = items.find((m) => m.kind === "foto");
-        if (first) {
-          const url = URL.createObjectURL(first.blob);
-          urls.push(url);
-          map[job.id] = url;
-        }
+      for (const m of items) {
+        if (m.kind === "foto" && !map[m.jobId]) map[m.jobId] = m.url;
       }
       if (!cancelled) setThumbs(map);
     })();
-    return () => { cancelled = true; urls.forEach((u) => URL.revokeObjectURL(u)); };
+    return () => { cancelled = true; };
   }, [jobs]);
 
   const filtered = useMemo(() => {

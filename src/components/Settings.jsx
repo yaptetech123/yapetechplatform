@@ -32,7 +32,10 @@ export default function Settings({ jobs, reload, notify }) {
       const allJobs = await db.getAllJobs();
       const allMedia = await db.getAllMedia();
       const mediaB64 = await Promise.all(
-        allMedia.map(async (m) => ({ id: m.id, jobId: m.jobId, kind: m.kind, name: m.name, size: m.size, data: await blobToDataURL(m.blob) }))
+        allMedia.map(async (m) => {
+          const blob = await (await fetch(m.url)).blob();
+          return { id: m.id, jobId: m.jobId, kind: m.kind, name: m.name, size: m.size, data: await blobToDataURL(blob) };
+        })
       );
       const payload = { app: "yapetech", version: 1, exportedAt: new Date().toISOString(), jobs: allJobs, media: mediaB64 };
       const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
@@ -107,8 +110,8 @@ export default function Settings({ jobs, reload, notify }) {
       <div className="card card-pad settings-section">
         <div className="section-title">Respaldo de información</div>
         <p style={{ fontSize: 13, color: "var(--ink-muted)", marginTop: -6, marginBottom: 16 }}>
-          Todos los datos (trabajos, fotos y videos) se guardan solo en este navegador. Descarga un respaldo
-          periódicamente para no perder tu historial si cambias de equipo o borras los datos del navegador.
+          Todos los datos (trabajos, fotos y videos) se guardan en la nube y se ven igual desde cualquier
+          dispositivo. Aun así, te recomendamos descargar un respaldo periódicamente como copia adicional.
         </p>
         <div className="kv-row">
           <div>
@@ -139,7 +142,7 @@ export default function Settings({ jobs, reload, notify }) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--ink-muted)", fontSize: 12, marginTop: 8 }}>
-        <ShieldCheck size={14} /> Los datos permanecen únicamente en este dispositivo/navegador.
+        <ShieldCheck size={14} /> Los datos se guardan en la nube y se sincronizan entre todos tus dispositivos.
       </div>
 
       {confirmWipe && (

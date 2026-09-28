@@ -47,12 +47,9 @@ export default function JobForm({ initial, onSaved, onCancel, notify }) {
   useEffect(() => {
     if (initial) {
       db.getMediaForJob(initial.id).then((items) => {
-        const withUrls = items.map((m) => {
-          const url = URL.createObjectURL(m.blob);
-          objectUrls.current.push(url);
-          return { ...m, url, isNew: false };
-        });
-        setMedia(withUrls);
+        // Los medios ya guardados vienen con una URL pública lista para usar
+        // (no hace falta crear object URLs locales para estos).
+        setMedia(items.map((m) => ({ ...m, isNew: false })));
       });
     }
     return () => { objectUrls.current.forEach((u) => URL.revokeObjectURL(u)); };
