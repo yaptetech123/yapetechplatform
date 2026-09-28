@@ -6,6 +6,8 @@ export const BRANDS = [
 
 export const DEVICE_TYPES = ["Celular", "Tablet"];
 
+export const PAYMENT_METHODS = ["Yape", "Transferencia", "Plin", "Efectivo"];
+
 export const REPAIR_TYPES = [
   "Cambio de pantalla",
   "Cambio de batería",

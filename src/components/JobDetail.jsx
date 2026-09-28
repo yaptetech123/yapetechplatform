@@ -54,6 +54,7 @@ export default function JobDetail({ job, onClose, onEdit, onDelete }) {
         {job.imei1 && <Item k="IMEI 1" v={job.imei1} mono />}
         {job.imei2 && <Item k="IMEI 2" v={job.imei2} mono />}
         <Item k="Tipo de reparación" v={job.tipoReparacion} />
+        {job.metodoPago && <Item k="Método de pago" v={job.metodoPago} />}
       </div>
 
       <div style={{ marginBottom: 22 }}>

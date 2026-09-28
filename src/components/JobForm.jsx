@@ -4,7 +4,7 @@ import {
 } from "lucide-react";
 import { db } from "../db.js";
 import {
-  BRANDS, DEVICE_TYPES, REPAIR_TYPES, systemForBrand, uid, nowLocal,
+  BRANDS, DEVICE_TYPES, REPAIR_TYPES, PAYMENT_METHODS, systemForBrand, uid, nowLocal,
   compressImage, isValidImei, formatBytes,
 } from "../utils.js";
 
@@ -25,6 +25,7 @@ const emptyForm = () => ({
   descripcion: "",
   costo: "",
   inversion: "",
+  metodoPago: "",
   estado: "En proceso",
 });
 
@@ -94,6 +95,7 @@ export default function JobForm({ initial, onSaved, onCancel, notify }) {
     if (form.imei2 && !isValidImei(form.imei2.trim())) e.imei2 = "IMEI inválido (15 dígitos)";
     if (form.costo === "" || Number(form.costo) < 0) e.costo = "Ingresa el costo";
     if (form.inversion === "" || Number(form.inversion) < 0) e.inversion = "Ingresa la inversión";
+    if (!form.metodoPago) e.metodoPago = "Selecciona el método de pago";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -125,6 +127,7 @@ export default function JobForm({ initial, onSaved, onCancel, notify }) {
         descripcion: form.descripcion.trim(),
         costo: Number(form.costo),
         inversion: Number(form.inversion),
+        metodoPago: form.metodoPago,
         estado: form.estado,
         creadoEn: initial?.creadoEn || new Date().toISOString(),
         actualizadoEn: new Date().toISOString(),
@@ -328,6 +331,14 @@ export default function JobForm({ initial, onSaved, onCancel, notify }) {
               </div>
               {errors.inversion && <div className="error-text">{errors.inversion}</div>}
             </div>
+            <div className="field">
+              <label>Método de pago <span className="req">*</span></label>
+              <select className={errors.metodoPago ? "error" : ""} value={form.metodoPago} onChange={(e) => set("metodoPago", e.target.value)}>
+                <option value="">Selecciona…</option>
+                {PAYMENT_METHODS.map((m) => <option key={m}>{m}</option>)}
+              </select>
+              {errors.metodoPago && <div className="error-text">{errors.metodoPago}</div>}
+            </div>
             <div className="field full" style={{ background: "var(--surface-2)", borderRadius: 10, padding: "12px 14px" }}>
               <label style={{ marginBottom: 0 }}>Ganancia estimada</label>
               <div style={{ fontSize: 20, fontWeight: 700, color: "var(--success)", fontFamily: "Sora, sans-serif" }}>
@@ -368,6 +379,7 @@ function toFormState(job) {
     tipoReparacionOtro: REPAIR_TYPES.includes(job.tipoReparacion) ? "" : job.tipoReparacion,
     descripcion: job.descripcion,
     costo: String(job.costo ?? ""), inversion: String(job.inversion ?? ""),
+    metodoPago: job.metodoPago || "",
     estado: job.estado || "En proceso",
   };
 }
