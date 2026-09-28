@@ -21,6 +21,7 @@ const emptyForm = () => ({
   imei1: "",
   imei2: "",
   tipoReparacion: "",
+  tipoReparacionOtro: "",
   descripcion: "",
   costo: "",
   inversion: "",
@@ -87,6 +88,7 @@ export default function JobForm({ initial, onSaved, onCancel, notify }) {
     if (form.marca === "Otra" && !form.marcaOtra.trim()) e.marcaOtra = "Especifica la marca";
     if (!form.modelo.trim()) e.modelo = "Requerido";
     if (!form.tipoReparacion) e.tipoReparacion = "Requerido";
+    if (form.tipoReparacion === "Otro" && !form.tipoReparacionOtro.trim()) e.tipoReparacionOtro = "Especifica el tipo de reparación";
     if (!form.descripcion.trim()) e.descripcion = "Describe cómo se recibió el equipo";
     if (form.imei1 && !isValidImei(form.imei1.trim())) e.imei1 = "IMEI inválido (15 dígitos)";
     if (form.imei2 && !isValidImei(form.imei2.trim())) e.imei2 = "IMEI inválido (15 dígitos)";
@@ -105,6 +107,7 @@ export default function JobForm({ initial, onSaved, onCancel, notify }) {
     setSaving(true);
     try {
       const marcaFinal = form.marca === "Otra" ? form.marcaOtra.trim() : form.marca;
+      const tipoReparacionFinal = form.tipoReparacion === "Otro" ? form.tipoReparacionOtro.trim() : form.tipoReparacion;
       const job = {
         id: initial?.id || uid(),
         fecha: form.fecha,
@@ -118,7 +121,7 @@ export default function JobForm({ initial, onSaved, onCancel, notify }) {
         numeroSerie: form.numeroSerie.trim(),
         imei1: form.imei1.trim(),
         imei2: form.imei2.trim(),
-        tipoReparacion: form.tipoReparacion,
+        tipoReparacion: tipoReparacionFinal,
         descripcion: form.descripcion.trim(),
         costo: Number(form.costo),
         inversion: Number(form.inversion),
@@ -245,6 +248,14 @@ export default function JobForm({ initial, onSaved, onCancel, notify }) {
               </select>
               {errors.tipoReparacion && <div className="error-text">{errors.tipoReparacion}</div>}
             </div>
+            {form.tipoReparacion === "Otro" && (
+              <div className="field">
+                <label>Especifica el tipo de reparación <span className="req">*</span></label>
+                <input type="text" placeholder="Ej. Cambio de conector de carga" className={errors.tipoReparacionOtro ? "error" : ""}
+                  value={form.tipoReparacionOtro} onChange={(e) => set("tipoReparacionOtro", e.target.value)} />
+                {errors.tipoReparacionOtro && <div className="error-text">{errors.tipoReparacionOtro}</div>}
+              </div>
+            )}
             <div className="field">
               <label>Estado del trabajo</label>
               <select value={form.estado} onChange={(e) => set("estado", e.target.value)}>
@@ -353,7 +364,9 @@ function toFormState(job) {
     marcaOtra: BRANDS.includes(job.marca) ? "" : job.marca,
     modelo: job.modelo, numeroSerie: job.numeroSerie || "",
     imei1: job.imei1 || "", imei2: job.imei2 || "",
-    tipoReparacion: job.tipoReparacion, descripcion: job.descripcion,
+    tipoReparacion: REPAIR_TYPES.includes(job.tipoReparacion) ? job.tipoReparacion : "Otro",
+    tipoReparacionOtro: REPAIR_TYPES.includes(job.tipoReparacion) ? "" : job.tipoReparacion,
+    descripcion: job.descripcion,
     costo: String(job.costo ?? ""), inversion: String(job.inversion ?? ""),
     estado: job.estado || "En proceso",
   };
