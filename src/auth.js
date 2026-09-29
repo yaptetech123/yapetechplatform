@@ -1,24 +1,69 @@
-// Acceso de administrador (guardado solo en este navegador).
-const CRED_KEY = "yapetech:credenciales";
-const SESSION_KEY = "yapetech:sesion";
+// Autenticación contra Supabase (tabla app_users). Las contraseñas se
+// verifican y se cambian solo a través de funciones RPC del lado del
+// servidor (verify_login / set_app_user_password) — el navegador nunca
+// lee ni escribe el hash directamente.
+import { supabase } from "./supabaseClient.js";
 
-export const DEFAULT_CREDENTIALS = { usuario: "admin", clave: "yapetech2026" };
+const SESSION_KEY = "yapetech:sesion";
 
 const safe = (fn, fallback) => {
   try { return fn(); } catch { return fallback; }
 };
 
-export const getCredentials = () =>
-  safe(() => JSON.parse(localStorage.getItem(CRED_KEY)), null) || DEFAULT_CREDENTIALS;
+export async function login(usuario, clave) {
+  const { data, error } = await supabase.rpc("verify_login", {
+    p_usuario: usuario.trim(),
+    p_clave: clave,
+  });
+  if (error) throw error;
+  const user = Array.isArray(data) ? data[0] : data;
+  if (!user) return null;
+  safe(() => localStorage.setItem(SESSION_KEY, JSON.stringify(user)));
+  return user;
+}
 
-export const setCredentials = (cred) =>
-  safe(() => localStorage.setItem(CRED_KEY, JSON.stringify(cred)));
-
-export const checkLogin = (usuario, clave) => {
-  const c = getCredentials();
-  return usuario.trim().toLowerCase() === c.usuario.toLowerCase() && clave === c.clave;
-};
-
-export const isLoggedIn = () => safe(() => localStorage.getItem(SESSION_KEY) === "1", false);
-export const saveSession = () => safe(() => localStorage.setItem(SESSION_KEY, "1"));
+export const getSession = () => safe(() => JSON.parse(localStorage.getItem(SESSION_KEY)), null);
 export const clearSession = () => safe(() => localStorage.removeItem(SESSION_KEY));
+export const isAdmin = (user) => user?.rol === "admin";
+
+// ---------------- Gestión de usuarios (solo para administradores) ----------------
+
+export async function listUsers() {
+  const { data, error } = await supabase
+    .from("app_users")
+    .select("id, usuario, nombre, rol, activo, creado_en")
+    .order("creado_en");
+  if (error) throw error;
+  return data;
+}
+
+export async function createUser({ usuario, clave, nombre, rol }) {
+  const { data, error } = await supabase.rpc("create_app_user", {
+    p_usuario: usuario.trim(),
+    p_clave: clave,
+    p_nombre: (nombre || "").trim(),
+    p_rol: rol,
+  });
+  if (error) throw error;
+  return Array.isArray(data) ? data[0] : data;
+}
+
+export async function updateUserInfo(id, { usuario, nombre, rol, activo }) {
+  const patch = { actualizado_en: new Date().toISOString() };
+  if (usuario !== undefined) patch.usuario = usuario.trim();
+  if (nombre !== undefined) patch.nombre = nombre.trim();
+  if (rol !== undefined) patch.rol = rol;
+  if (activo !== undefined) patch.activo = activo;
+  const { error } = await supabase.from("app_users").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+export async function resetUserPassword(id, clave) {
+  const { error } = await supabase.rpc("set_app_user_password", { p_id: id, p_clave: clave });
+  if (error) throw error;
+}
+
+export async function deleteUser(id) {
+  const { error } = await supabase.from("app_users").delete().eq("id", id);
+  if (error) throw error;
+}

@@ -1,30 +1,18 @@
-import { useRef, useState } from "react";
-import { KeyRound, Download, Upload, Trash2, ShieldCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  KeyRound, Download, Upload, Trash2, ShieldCheck, Users, PlusCircle, Pencil, Loader2, Save, X,
+} from "lucide-react";
 import { db } from "../db.js";
-import { getCredentials, setCredentials } from "../auth.js";
-import { blobToDataURL, dataURLToBlob, formatBytes, downloadBlob } from "../utils.js";
+import {
+  resetUserPassword, listUsers, createUser, updateUserInfo, deleteUser,
+} from "../auth.js";
+import { blobToDataURL, dataURLToBlob, downloadBlob } from "../utils.js";
 import { Modal } from "./ui.jsx";
 
-export default function Settings({ jobs, reload, notify }) {
-  const [pwUser, setPwUser] = useState(getCredentials().usuario);
-  const [pwNew, setPwNew] = useState("");
-  const [pwConfirm, setPwConfirm] = useState("");
-  const [pwError, setPwError] = useState("");
+export default function Settings({ jobs, reload, notify, currentUser }) {
   const [busy, setBusy] = useState(false);
   const [confirmWipe, setConfirmWipe] = useState(false);
   const importRef = useRef(null);
-
-  const savePassword = (e) => {
-    e.preventDefault();
-    setPwError("");
-    if (!pwUser.trim()) { setPwError("Ingresa un usuario."); return; }
-    if (pwNew && pwNew.length < 4) { setPwError("La contraseña debe tener al menos 4 caracteres."); return; }
-    if (pwNew && pwNew !== pwConfirm) { setPwError("Las contraseñas no coinciden."); return; }
-    const current = getCredentials();
-    setCredentials({ usuario: pwUser.trim(), clave: pwNew || current.clave });
-    setPwNew(""); setPwConfirm("");
-    notify?.("Credenciales actualizadas");
-  };
 
   const exportBackup = async () => {
     setBusy(true);
@@ -80,34 +68,14 @@ export default function Settings({ jobs, reload, notify }) {
     notify?.("Todos los datos fueron eliminados");
   };
 
-  const totalMediaSize = 0; // (se calcula bajo demanda en el respaldo)
-
   return (
     <div>
       <div className="page-title" style={{ marginBottom: 4 }}>Ajustes</div>
-      <div className="page-sub" style={{ marginBottom: 22 }}>Seguridad de acceso y respaldo de tu información.</div>
+      <div className="page-sub" style={{ marginBottom: 22 }}>Seguridad de acceso, usuarios y respaldo de tu información.</div>
 
-      <div className="card card-pad settings-section">
-        <div className="section-title"><KeyRound size={15} style={{ verticalAlign: -2, marginRight: 6 }} />Acceso de administrador</div>
-        <form onSubmit={savePassword} className="form-grid">
-          <div className="field">
-            <label>Usuario</label>
-            <input type="text" value={pwUser} onChange={(e) => setPwUser(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>Nueva contraseña <span className="hint">deja en blanco para no cambiarla</span></label>
-            <input type="password" value={pwNew} onChange={(e) => setPwNew(e.target.value)} placeholder="••••••••" />
-          </div>
-          <div className="field full">
-            <label>Confirmar nueva contraseña</label>
-            <input type="password" value={pwConfirm} onChange={(e) => setPwConfirm(e.target.value)} placeholder="••••••••" />
-          </div>
-          {pwError && <div className="error-text field full" style={{ marginTop: -8 }}>{pwError}</div>}
-          <div className="field full">
-            <button className="btn btn-primary" type="submit">Guardar credenciales</button>
-          </div>
-        </form>
-      </div>
+      <MyAccount currentUser={currentUser} notify={notify} />
+
+      <UsersPanel currentUser={currentUser} notify={notify} />
 
       <div className="card card-pad settings-section">
         <div className="section-title">Respaldo de información</div>
@@ -165,5 +133,252 @@ export default function Settings({ jobs, reload, notify }) {
         </Modal>
       )}
     </div>
+  );
+}
+
+// ---------------- Mi cuenta (cambiar mi propia contraseña) ----------------
+
+function MyAccount({ currentUser, notify }) {
+  const [pwNew, setPwNew] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [pwError, setPwError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const savePassword = async (e) => {
+    e.preventDefault();
+    setPwError("");
+    if (pwNew.length < 4) { setPwError("La contraseña debe tener al menos 4 caracteres."); return; }
+    if (pwNew !== pwConfirm) { setPwError("Las contraseñas no coinciden."); return; }
+    setSaving(true);
+    try {
+      await resetUserPassword(currentUser.id, pwNew);
+      setPwNew(""); setPwConfirm("");
+      notify?.("Contraseña actualizada");
+    } catch (err) {
+      console.error(err);
+      setPwError("No se pudo actualizar la contraseña.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="card card-pad settings-section">
+      <div className="section-title"><KeyRound size={15} style={{ verticalAlign: -2, marginRight: 6 }} />Mi cuenta</div>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", marginTop: -6, marginBottom: 16 }}>
+        Sesión: <b>{currentUser.usuario}</b> {currentUser.nombre ? `(${currentUser.nombre})` : ""} — {currentUser.rol === "admin" ? "Administrador" : "Técnico"}
+      </p>
+      <form onSubmit={savePassword} className="form-grid">
+        <div className="field">
+          <label>Nueva contraseña</label>
+          <input type="password" value={pwNew} onChange={(e) => setPwNew(e.target.value)} placeholder="••••••••" />
+        </div>
+        <div className="field">
+          <label>Confirmar nueva contraseña</label>
+          <input type="password" value={pwConfirm} onChange={(e) => setPwConfirm(e.target.value)} placeholder="••••••••" />
+        </div>
+        {pwError && <div className="error-text field full" style={{ marginTop: -8 }}>{pwError}</div>}
+        <div className="field full">
+          <button className="btn btn-primary" type="submit" disabled={saving}>
+            {saving ? <Loader2 size={15} className="spin" /> : <Save size={15} />} Cambiar mi contraseña
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ---------------- Gestión de usuarios (solo administradores) ----------------
+
+function UsersPanel({ currentUser, notify }) {
+  const [users, setUsers] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const reload = async () => {
+    const all = await listUsers();
+    setUsers(all);
+    setLoaded(true);
+  };
+
+  useEffect(() => { reload(); }, []);
+
+  const admins = users.filter((u) => u.rol === "admin" && u.activo);
+
+  const onSaved = async (msg) => {
+    setModalOpen(false);
+    setEditing(null);
+    await reload();
+    notify?.(msg);
+  };
+
+  const onDelete = async () => {
+    if (confirmDelete.id === currentUser.id) {
+      notify?.("No puedes eliminar tu propia cuenta", "err");
+      setConfirmDelete(null);
+      return;
+    }
+    if (confirmDelete.rol === "admin" && admins.length <= 1) {
+      notify?.("Debe quedar al menos un administrador", "err");
+      setConfirmDelete(null);
+      return;
+    }
+    await deleteUser(confirmDelete.id);
+    setConfirmDelete(null);
+    await reload();
+    notify?.("Usuario eliminado");
+  };
+
+  return (
+    <div className="card card-pad settings-section">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 10 }}>
+        <div className="section-title" style={{ marginBottom: 0 }}><Users size={15} style={{ verticalAlign: -2, marginRight: 6 }} />Usuarios</div>
+        <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setModalOpen(true); }}><PlusCircle size={14} /> Agregar usuario</button>
+      </div>
+      <p style={{ fontSize: 13, color: "var(--ink-muted)", marginTop: 0, marginBottom: 16 }}>
+        Crea cuentas para tu equipo con menos permisos: un usuario con rol <b>Técnico</b> no ve el apartado de Ajustes.
+      </p>
+
+      {!loaded ? (
+        <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>Cargando…</div>
+      ) : (
+        users.map((u) => (
+          <div className="kv-row" key={u.id}>
+            <div>
+              <div className="k">
+                {u.usuario} {u.nombre && <span style={{ fontWeight: 400, color: "var(--ink-muted)" }}>— {u.nombre}</span>}
+                {u.id === currentUser.id && <span className="badge" style={{ marginLeft: 8 }}>Tú</span>}
+              </div>
+              <div className="d">
+                {u.rol === "admin" ? "Administrador" : "Técnico"} · {u.activo ? "Activo" : "Inactivo"}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button className="icon-btn" onClick={() => { setEditing(u); setModalOpen(true); }} aria-label="Editar"><Pencil size={15} /></button>
+              <button className="icon-btn danger" onClick={() => setConfirmDelete(u)} aria-label="Eliminar"><Trash2 size={15} /></button>
+            </div>
+          </div>
+        ))
+      )}
+
+      {modalOpen && (
+        <UserModal
+          initial={editing}
+          currentUser={currentUser}
+          onClose={() => { setModalOpen(false); setEditing(null); }}
+          onSaved={onSaved}
+        />
+      )}
+
+      {confirmDelete && (
+        <Modal
+          title="Eliminar usuario"
+          onClose={() => setConfirmDelete(null)}
+          footer={
+            <>
+              <button className="btn btn-ghost" onClick={() => setConfirmDelete(null)}>Cancelar</button>
+              <button className="btn btn-danger" onClick={onDelete}><Trash2 size={15} /> Sí, eliminar</button>
+            </>
+          }
+        >
+          <p style={{ fontSize: 14, color: "var(--ink-soft)" }}>
+            Se eliminará el acceso de <b>{confirmDelete.usuario}</b>. Esta acción no se puede deshacer.
+          </p>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function UserModal({ initial, currentUser, onClose, onSaved }) {
+  const isEdit = !!initial;
+  const isSelf = initial?.id === currentUser.id;
+  const [usuario, setUsuario] = useState(initial?.usuario || "");
+  const [nombre, setNombre] = useState(initial?.nombre || "");
+  const [rol, setRol] = useState(initial?.rol || "tecnico");
+  const [activo, setActivo] = useState(initial?.activo ?? true);
+  const [clave, setClave] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    if (!usuario.trim()) { setError("Ingresa un usuario."); return; }
+    if (!isEdit && clave.length < 4) { setError("La contraseña debe tener al menos 4 caracteres."); return; }
+    if (clave && clave.length < 4) { setError("La contraseña debe tener al menos 4 caracteres."); return; }
+    setSaving(true);
+    try {
+      if (isEdit) {
+        await updateUserInfo(initial.id, { usuario, nombre, rol, activo });
+        if (clave) await resetUserPassword(initial.id, clave);
+        onSaved("Usuario actualizado");
+      } else {
+        await createUser({ usuario, clave, nombre, rol });
+        onSaved("Usuario creado");
+      }
+    } catch (err) {
+      console.error(err);
+      setError(
+        String(err.message || "").includes("duplicate") || String(err.message || "").includes("unique")
+          ? "Ese nombre de usuario ya existe."
+          : "No se pudo guardar el usuario."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      title={isEdit ? "Editar usuario" : "Agregar usuario"}
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+          <button type="submit" form="user-form" className="btn btn-primary" disabled={saving}>
+            {saving ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
+            {isEdit ? "Guardar cambios" : "Crear usuario"}
+          </button>
+        </>
+      }
+    >
+      <form id="user-form" onSubmit={submit}>
+        <div className="form-grid">
+          <div className="field">
+            <label>Usuario <span className="req">*</span></label>
+            <input type="text" value={usuario} onChange={(e) => setUsuario(e.target.value)} autoComplete="off" />
+          </div>
+          <div className="field">
+            <label>Nombre <span className="hint">opcional</span></label>
+            <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Rol</label>
+            <select value={rol} onChange={(e) => setRol(e.target.value)} disabled={isSelf}>
+              <option value="tecnico">Técnico</option>
+              <option value="admin">Administrador</option>
+            </select>
+            {isSelf && <div className="hint" style={{ marginTop: 4 }}>No puedes cambiar tu propio rol.</div>}
+          </div>
+          {isEdit && (
+            <div className="field">
+              <label>Estado</label>
+              <select value={activo ? "1" : "0"} onChange={(e) => setActivo(e.target.value === "1")} disabled={isSelf}>
+                <option value="1">Activo</option>
+                <option value="0">Inactivo</option>
+              </select>
+            </div>
+          )}
+          <div className="field full">
+            <label>{isEdit ? "Nueva contraseña" : "Contraseña"} {isEdit && <span className="hint">deja en blanco para no cambiarla</span>}{!isEdit && <span className="req">*</span>}</label>
+            <input type="password" value={clave} onChange={(e) => setClave(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
+          </div>
+          {error && <div className="error-text field full" style={{ marginTop: -8 }}>{error}</div>}
+        </div>
+      </form>
+    </Modal>
   );
 }

@@ -3,7 +3,7 @@ import {
   LayoutDashboard, PlusCircle, ClipboardList, Settings as SettingsIcon, LogOut, Boxes,
 } from "lucide-react";
 import { db } from "./db.js";
-import { isLoggedIn, saveSession, clearSession } from "./auth.js";
+import { getSession, clearSession, isAdmin } from "./auth.js";
 import Login from "./components/Login.jsx";
 import Dashboard from "./components/Dashboard.jsx";
 import JobForm from "./components/JobForm.jsx";
@@ -13,23 +13,26 @@ import Inventory from "./components/Inventory.jsx";
 import Settings from "./components/Settings.jsx";
 import { Toast } from "./components/ui.jsx";
 
-const NAV = [
+const NAV_ALL = [
   { id: "nuevo", label: "Nuevo trabajo", short: "Nuevo", icon: PlusCircle },
   { id: "trabajos", label: "Trabajos", short: "Trabajos", icon: ClipboardList },
   { id: "inventario", label: "Inventario", short: "Inventario", icon: Boxes },
   { id: "dashboard", label: "Ganancias", short: "Ganancias", icon: LayoutDashboard },
-  { id: "ajustes", label: "Ajustes", short: "Ajustes", icon: SettingsIcon },
+  { id: "ajustes", label: "Ajustes", short: "Ajustes", icon: SettingsIcon, adminOnly: true },
 ];
 
 export default function App() {
-  const [logged, setLogged] = useState(isLoggedIn());
-  if (!logged) {
-    return <Login onSuccess={() => { saveSession(); setLogged(true); }} />;
+  const [user, setUser] = useState(getSession());
+  if (!user) {
+    return <Login onSuccess={(u) => setUser(u)} />;
   }
-  return <Shell onLogout={() => { clearSession(); setLogged(false); }} />;
+  return <Shell user={user} onLogout={() => { clearSession(); setUser(null); }} />;
 }
 
-function Shell({ onLogout }) {
+function Shell({ user, onLogout }) {
+  const admin = isAdmin(user);
+  const NAV = NAV_ALL.filter((n) => !n.adminOnly || admin);
+
   const [tab, setTab] = useState("trabajos");
   const [jobs, setJobs] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -96,7 +99,7 @@ function Shell({ onLogout }) {
         </nav>
         <button className="side-link logout" onClick={onLogout}>
           <LogOut size={18} />
-          <span>Cerrar sesión</span>
+          <span>Cerrar sesión{user.nombre ? ` (${user.nombre})` : ""}</span>
         </button>
       </aside>
 
@@ -124,8 +127,8 @@ function Shell({ onLogout }) {
           <JobsList jobs={jobs} onOpen={setViewing} onNew={() => go("nuevo")} />
         ) : tab === "inventario" ? (
           <Inventory notify={notify} />
-        ) : tab === "ajustes" ? (
-          <Settings jobs={jobs} reload={reload} notify={notify} />
+        ) : tab === "ajustes" && admin ? (
+          <Settings jobs={jobs} reload={reload} notify={notify} currentUser={user} />
         ) : null}
       </main>
 

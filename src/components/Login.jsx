@@ -1,20 +1,28 @@
 import { useState } from "react";
-import { Eye, EyeOff, Lock } from "lucide-react";
-import { checkLogin } from "../auth.js";
+import { Eye, EyeOff, Lock, Loader2 } from "lucide-react";
+import { login } from "../auth.js";
 
 export default function Login({ onSuccess }) {
   const [usuario, setUsuario] = useState("");
   const [clave, setClave] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (!usuario.trim() || !clave) { setError("Ingresa usuario y contraseña."); return; }
-    if (checkLogin(usuario, clave)) {
-      onSuccess();
-    } else {
-      setError("Usuario o contraseña incorrectos.");
+    setError("");
+    setBusy(true);
+    try {
+      const user = await login(usuario, clave);
+      if (user) onSuccess(user);
+      else setError("Usuario o contraseña incorrectos.");
+    } catch (err) {
+      console.error(err);
+      setError("No se pudo conectar. Intenta de nuevo.");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -52,13 +60,13 @@ export default function Login({ onSuccess }) {
 
           {error && <div className="error-text" style={{ marginBottom: 8 }}>{error}</div>}
 
-          <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: 14 }}>
-            <Lock size={15} /> Ingresar
+          <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: 14 }} disabled={busy}>
+            {busy ? <Loader2 size={16} className="spin" /> : <Lock size={15} />} Ingresar
           </button>
         </form>
 
         <p style={{ fontSize: 11.5, color: "var(--ink-muted)", textAlign: "center", marginTop: 20, marginBottom: 0 }}>
-          Acceso exclusivo para el administrador del local.
+          Acceso exclusivo para el personal del local.
         </p>
       </div>
     </div>
