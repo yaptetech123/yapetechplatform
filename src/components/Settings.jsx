@@ -31,13 +31,14 @@ export default function Settings({ jobs, reload, notify }) {
     try {
       const allJobs = await db.getAllJobs();
       const allMedia = await db.getAllMedia();
+      const allParts = await db.getAllParts();
       const mediaB64 = await Promise.all(
         allMedia.map(async (m) => {
           const blob = await (await fetch(m.url)).blob();
           return { id: m.id, jobId: m.jobId, kind: m.kind, name: m.name, size: m.size, data: await blobToDataURL(blob) };
         })
       );
-      const payload = { app: "yapetech", version: 1, exportedAt: new Date().toISOString(), jobs: allJobs, media: mediaB64 };
+      const payload = { app: "yapetech", version: 1, exportedAt: new Date().toISOString(), jobs: allJobs, media: mediaB64, parts: allParts };
       const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
       downloadBlob(blob, `yapetech-respaldo-${new Date().toISOString().slice(0, 10)}.json`);
       notify?.("Respaldo descargado");
@@ -61,6 +62,7 @@ export default function Settings({ jobs, reload, notify }) {
         (payload.media || []).map(async (m) => ({ id: m.id, jobId: m.jobId, kind: m.kind, name: m.name, size: m.size, blob: await dataURLToBlob(m.data) }))
       );
       if (mediaBlobs.length) await db.putMedia(mediaBlobs);
+      for (const part of payload.parts || []) await db.putPart(part);
       await reload();
       notify?.(`Respaldo importado: ${payload.jobs.length} trabajos`);
     } catch (err) {

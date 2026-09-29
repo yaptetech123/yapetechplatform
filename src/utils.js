@@ -29,6 +29,26 @@ export const REPAIR_TYPES = [
   "Otro",
 ];
 
+export const PART_TYPES = [
+  "Pantalla",
+  "Batería",
+  "Pin / puerto de carga",
+  "Tapa trasera",
+  "Cámara trasera",
+  "Cámara frontal",
+  "Lente de cámara",
+  "Parlante",
+  "Auricular",
+  "Micrófono",
+  "Botones (power / volumen)",
+  "Flex / cable flex",
+  "Placa / microelectrónica",
+  "Táctil (touch)",
+  "Carcasa / chasis",
+  "Antena / módulo de señal",
+  "Otro",
+];
+
 export const systemForBrand = (brand) => (brand === "Apple" ? "iOS" : "Android");
 
 export const uid = () =>

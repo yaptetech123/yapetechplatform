@@ -59,6 +59,32 @@ const rowToMedia = (r) => ({
   url: supabase.storage.from(MEDIA_BUCKET).getPublicUrl(r.path).data.publicUrl,
 });
 
+const partToRow = (part) => ({
+  id: part.id,
+  tipo_repuesto: part.tipoRepuesto,
+  marca: part.marca || "",
+  modelo: part.modelo,
+  detalle: part.detalle || "",
+  cantidad: part.cantidad,
+  costo: part.costo === "" || part.costo === undefined ? null : part.costo,
+  precio_venta: part.precioVenta === "" || part.precioVenta === undefined ? null : part.precioVenta,
+  creado_en: part.creadoEn || new Date().toISOString(),
+  actualizado_en: new Date().toISOString(),
+});
+
+const rowToPart = (r) => ({
+  id: r.id,
+  tipoRepuesto: r.tipo_repuesto,
+  marca: r.marca,
+  modelo: r.modelo,
+  detalle: r.detalle,
+  cantidad: Number(r.cantidad),
+  costo: r.costo === null ? "" : Number(r.costo),
+  precioVenta: r.precio_venta === null ? "" : Number(r.precio_venta),
+  creadoEn: r.creado_en,
+  actualizadoEn: r.actualizado_en,
+});
+
 const sanitizeName = (name) => (name || "archivo").replace(/[^a-zA-Z0-9._-]/g, "_");
 
 async function uploadMedia(item) {
@@ -136,6 +162,23 @@ export const db = {
     if (error) throw error;
   },
 
+  async getAllParts() {
+    const { data, error } = await supabase.from("parts").select("*").order("creado_en", { ascending: false });
+    if (error) throw error;
+    return data.map(rowToPart);
+  },
+
+  async putPart(part) {
+    const { error } = await supabase.from("parts").upsert(partToRow(part));
+    if (error) throw error;
+    return part;
+  },
+
+  async deletePart(partId) {
+    const { error } = await supabase.from("parts").delete().eq("id", partId);
+    if (error) throw error;
+  },
+
   async clearAll() {
     const allMedia = await db.getAllMedia();
     if (allMedia.length) {
@@ -143,5 +186,6 @@ export const db = {
     }
     await supabase.from("media").delete().neq("id", "");
     await supabase.from("jobs").delete().neq("id", "");
+    await supabase.from("parts").delete().neq("id", "");
   },
 };

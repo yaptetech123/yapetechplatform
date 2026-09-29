@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  LayoutDashboard, PlusCircle, ClipboardList, Settings as SettingsIcon, LogOut,
+  LayoutDashboard, PlusCircle, ClipboardList, Settings as SettingsIcon, LogOut, Boxes,
 } from "lucide-react";
 import { db } from "./db.js";
 import { isLoggedIn, saveSession, clearSession } from "./auth.js";
@@ -9,12 +9,14 @@ import Dashboard from "./components/Dashboard.jsx";
 import JobForm from "./components/JobForm.jsx";
 import JobsList from "./components/JobsList.jsx";
 import JobDetail from "./components/JobDetail.jsx";
+import Inventory from "./components/Inventory.jsx";
 import Settings from "./components/Settings.jsx";
 import { Toast } from "./components/ui.jsx";
 
 const NAV = [
   { id: "nuevo", label: "Nuevo trabajo", short: "Nuevo", icon: PlusCircle },
   { id: "trabajos", label: "Trabajos", short: "Trabajos", icon: ClipboardList },
+  { id: "inventario", label: "Inventario", short: "Inventario", icon: Boxes },
   { id: "dashboard", label: "Ganancias", short: "Ganancias", icon: LayoutDashboard },
   { id: "ajustes", label: "Ajustes", short: "Ajustes", icon: SettingsIcon },
 ];
@@ -120,9 +122,11 @@ function Shell({ onLogout }) {
           />
         ) : tab === "trabajos" ? (
           <JobsList jobs={jobs} onOpen={setViewing} onNew={() => go("nuevo")} />
-        ) : (
+        ) : tab === "inventario" ? (
+          <Inventory notify={notify} />
+        ) : tab === "ajustes" ? (
           <Settings jobs={jobs} reload={reload} notify={notify} />
-        )}
+        ) : null}
       </main>
 
       <nav className="bottom-nav">

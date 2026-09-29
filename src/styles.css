@@ -384,6 +384,30 @@ input.error, select.error, textarea.error { border-color: var(--danger); }
 .badge.ios { background: rgba(124,58,237,0.12); color: var(--brand-violet); border-color: transparent; }
 .badge.android { background: rgba(27,175,122,0.12); color: #17915f; border-color: transparent; }
 
+/* ---------------- Inventario ---------------- */
+
+.part-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 14px 16px; border-radius: var(--radius-md); background: var(--surface);
+  border: 1px solid var(--border); cursor: pointer; margin-bottom: 10px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.part-row:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
+.part-main .title { font-weight: 700; font-size: 14.5px; color: var(--ink); }
+.part-main .sub { font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
+.part-main .meta { font-size: 12px; color: var(--ink-muted); display: flex; align-items: center; flex-wrap: wrap; }
+
+.stock-pill {
+  display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; background: var(--surface-2); color: var(--ink-soft);
+  border: 1px solid var(--border);
+}
+.stock-pill.low { background: rgba(208,56,74,0.12); color: var(--danger); border-color: transparent; }
+
+@media (max-width: 560px) {
+  .part-row { align-items: flex-start; }
+}
+
 /* ---------------- Job detail ---------------- */
 
 .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; }
