@@ -78,7 +78,7 @@ export default function JobsList({ jobs, onOpen, onNew }) {
                   {job.marca} {job.modelo}
                   <span className={"badge " + (job.sistema === "iOS" ? "ios" : "android")} style={{ marginLeft: 8 }}>{job.sistema}</span>
                 </div>
-                <div className="client">{job.clienteNombre} · DNI {job.dni}</div>
+                <div className="client">{job.clienteNombre}{job.dni && ` · DNI ${job.dni}`}</div>
                 <div className="meta">
                   <span>{formatDateTime(job.fecha)}</span>
                   <span>· {job.tipoReparacion}</span>

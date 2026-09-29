@@ -3,27 +3,38 @@ import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import { Wallet, TrendingUp, Receipt, ClipboardCheck, BarChart3 } from "lucide-react";
-import { currency, currencyShort, profitOf, MONTHS, MONTHS_LONG } from "../utils.js";
+import { currency, currencyShort, profitOf, MONTHS } from "../utils.js";
 import { EmptyState } from "./ui.jsx";
 
+const PERIODS = [
+  { id: "dia", label: "Día", unit: "hour", spanDays: 1 },
+  { id: "semana", label: "Semana", unit: "day", count: 7, spanDays: 7 },
+  { id: "mes", label: "Mes", unit: "day", count: 30, spanDays: 30 },
+  { id: "3m", label: "3 meses", unit: "week", count: 13, spanDays: 91 },
+  { id: "6m", label: "6 meses", unit: "month", count: 6, spanDays: 182 },
+  { id: "1a", label: "1 año", unit: "month", count: 12, spanDays: 365 },
+];
+
 export default function Dashboard({ jobs }) {
-  const [range, setRange] = useState(12); // meses a mostrar
+  const [periodId, setPeriodId] = useState("mes");
+  const period = PERIODS.find((p) => p.id === periodId);
 
-  const monthly = useMemo(() => buildMonthly(jobs, range), [jobs, range]);
-  const totals = useMemo(() => {
-    const ingresos = jobs.reduce((s, j) => s + (Number(j.costo) || 0), 0);
-    const inversion = jobs.reduce((s, j) => s + (Number(j.inversion) || 0), 0);
-    return { ingresos, inversion, ganancia: ingresos - inversion, trabajos: jobs.length };
-  }, [jobs]);
+  const daily = useMemo(() => dailyTotals(jobs), [jobs]);
 
-  const thisMonth = monthly[monthly.length - 1];
-  const prevMonth = monthly[monthly.length - 2];
-  const monthDelta = prevMonth && prevMonth.ganancia !== 0
-    ? ((thisMonth.ganancia - prevMonth.ganancia) / Math.abs(prevMonth.ganancia)) * 100
-    : null;
+  const buckets = useMemo(() => {
+    if (period.unit === "hour") return buildHourBuckets(jobs);
+    if (period.unit === "day") return buildDayBuckets(daily, period.count);
+    if (period.unit === "week") return buildWeekBuckets(daily, period.count);
+    return buildMonthly(jobs, period.count);
+  }, [jobs, daily, period]);
 
-  const topReparaciones = useMemo(() => rankBy(jobs, "tipoReparacion"), [jobs]);
-  const topMarcas = useMemo(() => rankBy(jobs, "marca"), [jobs]);
+  const current = useMemo(() => sumRangeDays(daily, 0, period.spanDays - 1), [daily, period]);
+  const previous = useMemo(() => sumRangeDays(daily, period.spanDays, period.spanDays * 2 - 1), [daily, period]);
+  const delta = previous.ganancia !== 0 ? ((current.ganancia - previous.ganancia) / Math.abs(previous.ganancia)) * 100 : null;
+
+  const periodJobs = useMemo(() => jobsInRange(jobs, period.spanDays), [jobs, period]);
+  const topReparaciones = useMemo(() => rankBy(periodJobs, "tipoReparacion"), [periodJobs]);
+  const topMarcas = useMemo(() => rankBy(periodJobs, "marca"), [periodJobs]);
 
   if (jobs.length === 0) {
     return (
@@ -35,34 +46,43 @@ export default function Dashboard({ jobs }) {
     );
   }
 
+  const chartTitle = "Ganancia " + (
+    period.id === "dia" ? "por hora (hoy)" :
+    period.id === "semana" ? "por día (últimos 7 días)" :
+    period.id === "mes" ? "por día (últimos 30 días)" :
+    period.id === "3m" ? "por semana (últimos 3 meses)" :
+    "por mes"
+  );
+  const tickInterval = buckets.length > 10 ? Math.ceil(buckets.length / 10) - 1 : 0;
+
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
         <div>
           <div className="page-title">Ganancias del negocio</div>
-          <div className="page-sub">Resumen general y por mes, calculado sobre todos los trabajos registrados.</div>
+          <div className="page-sub">Resumen de {period.label.toLowerCase()}, calculado sobre tus trabajos registrados.</div>
         </div>
         <div className="seg">
-          {[6, 12, 24].map((n) => (
-            <button key={n} className={range === n ? "active" : ""} onClick={() => setRange(n)}>{n} meses</button>
+          {PERIODS.map((p) => (
+            <button key={p.id} className={periodId === p.id ? "active" : ""} onClick={() => setPeriodId(p.id)}>{p.label}</button>
           ))}
         </div>
       </div>
 
       <div className="stat-grid">
-        <StatTile icon={Wallet} label="Ingresos totales" value={currency(totals.ingresos)} />
-        <StatTile icon={Receipt} label="Invertido en repuestos" value={currency(totals.inversion)} />
+        <StatTile icon={Wallet} label={`Ingresos (${period.label.toLowerCase()})`} value={currency(current.ingresos)} />
+        <StatTile icon={Receipt} label={`Invertido en repuestos`} value={currency(current.inversion)} />
         <StatTile
-          icon={TrendingUp} label="Ganancia total" value={currency(totals.ganancia)}
-          delta={monthDelta}
-          deltaLabel={monthDelta === null ? null : `vs. mes anterior`}
+          icon={TrendingUp} label={`Ganancia (${period.label.toLowerCase()})`} value={currency(current.ganancia)}
+          delta={delta}
+          deltaLabel={delta === null ? null : "vs. periodo anterior"}
         />
-        <StatTile icon={ClipboardCheck} label="Trabajos registrados" value={totals.trabajos} />
+        <StatTile icon={ClipboardCheck} label="Trabajos en el periodo" value={current.cantidad} />
       </div>
 
       <div className="card chart-card">
         <div className="chart-head">
-          <div className="section-title" style={{ marginBottom: 0 }}>Ganancia por mes</div>
+          <div className="section-title" style={{ marginBottom: 0 }}>{chartTitle}</div>
           <div className="legend-row">
             <LegendItem color="var(--chart-1)" label="Ingresos" />
             <LegendItem color="var(--chart-2)" label="Inversión" />
@@ -70,11 +90,11 @@ export default function Dashboard({ jobs }) {
           </div>
         </div>
         <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={monthly} margin={{ top: 10, right: 8, left: -12, bottom: 0 }} barCategoryGap={22}>
+          <ComposedChart data={buckets} margin={{ top: 10, right: 8, left: -12, bottom: 0 }} barCategoryGap={22}>
             <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
-            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--chart-muted)" }} axisLine={{ stroke: "var(--chart-grid)" }} tickLine={false} />
+            <XAxis dataKey="label" interval={tickInterval} tick={{ fontSize: 12, fill: "var(--chart-muted)" }} axisLine={{ stroke: "var(--chart-grid)" }} tickLine={false} />
             <YAxis tickFormatter={currencyShort} tick={{ fontSize: 12, fill: "var(--chart-muted)" }} axisLine={false} tickLine={false} width={58} />
-            <Tooltip content={<MonthTooltip />} cursor={{ fill: "rgba(137,135,129,0.08)" }} />
+            <Tooltip content={<PeriodTooltip />} cursor={{ fill: "rgba(137,135,129,0.08)" }} />
             <Bar dataKey="ingresos" fill="var(--chart-1)" radius={[4, 4, 0, 0]} maxBarSize={22} isAnimationActive={false} />
             <Bar dataKey="inversion" fill="var(--chart-2)" radius={[4, 4, 0, 0]} maxBarSize={22} isAnimationActive={false} />
             <Line dataKey="ganancia" stroke="var(--chart-3)" strokeWidth={2} dot={{ r: 3, fill: "var(--chart-3)", strokeWidth: 0 }} activeDot={{ r: 5 }} isAnimationActive={false} />
@@ -84,11 +104,11 @@ export default function Dashboard({ jobs }) {
 
       <div className="two-col">
         <div className="card chart-card">
-          <div className="section-title">Trabajos por mes</div>
+          <div className="section-title">Trabajos en el periodo</div>
           <ResponsiveContainer width="100%" height={220}>
-            <ComposedChart data={monthly} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+            <ComposedChart data={buckets} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
-              <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--chart-muted)" }} axisLine={{ stroke: "var(--chart-grid)" }} tickLine={false} />
+              <XAxis dataKey="label" interval={tickInterval} tick={{ fontSize: 12, fill: "var(--chart-muted)" }} axisLine={{ stroke: "var(--chart-grid)" }} tickLine={false} />
               <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: "var(--chart-muted)" }} axisLine={false} tickLine={false} width={30} />
               <Tooltip
                 cursor={{ fill: "rgba(137,135,129,0.08)" }}
@@ -102,7 +122,7 @@ export default function Dashboard({ jobs }) {
                 }
               />
               <Bar dataKey="cantidad" radius={[4, 4, 0, 0]} maxBarSize={22} isAnimationActive={false}>
-                {monthly.map((m, i) => <Cell key={i} fill="var(--chart-1)" />)}
+                {buckets.map((m, i) => <Cell key={i} fill="var(--chart-1)" />)}
               </Bar>
             </ComposedChart>
           </ResponsiveContainer>
@@ -111,7 +131,7 @@ export default function Dashboard({ jobs }) {
         <div className="card card-pad">
           <div className="section-title">Reparaciones más frecuentes</div>
           {topReparaciones.length === 0 ? (
-            <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>Sin datos.</div>
+            <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>Sin datos en este periodo.</div>
           ) : (
             topReparaciones.map((r) => (
               <div className="rank-row" key={r.name}>
@@ -122,12 +142,16 @@ export default function Dashboard({ jobs }) {
           )}
 
           <div className="section-title" style={{ marginTop: 20 }}>Marcas más atendidas</div>
-          {topMarcas.map((r) => (
-            <div className="rank-row" key={r.name}>
-              <span className="name">{r.name}</span>
-              <span className="count">{r.count}</span>
-            </div>
-          ))}
+          {topMarcas.length === 0 ? (
+            <div style={{ fontSize: 13, color: "var(--ink-muted)" }}>Sin datos en este periodo.</div>
+          ) : (
+            topMarcas.map((r) => (
+              <div className="rank-row" key={r.name}>
+                <span className="name">{r.name}</span>
+                <span className="count">{r.count}</span>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
@@ -158,7 +182,7 @@ function LegendItem({ color, label }) {
   );
 }
 
-function MonthTooltip({ active, payload, label }) {
+function PeriodTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   const byKey = Object.fromEntries(payload.map((p) => [p.dataKey, p.value]));
   return (
@@ -171,15 +195,116 @@ function MonthTooltip({ active, payload, label }) {
   );
 }
 
+// ---------------- Helpers de fecha (hora local) ----------------
+
+const pad2 = (n) => String(n).padStart(2, "0");
+const dateKeyOf = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const dayLabelOf = (d) => `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+const emptyBucket = () => ({ ingresos: 0, inversion: 0, ganancia: 0, cantidad: 0 });
+
+// Suma de cada trabajo agrupado por día calendario (clave "YYYY-MM-DD").
+function dailyTotals(jobs) {
+  const map = new Map();
+  for (const job of jobs) {
+    const key = (job.fecha || "").slice(0, 10);
+    if (!key) continue;
+    if (!map.has(key)) map.set(key, emptyBucket());
+    const b = map.get(key);
+    b.ingresos += Number(job.costo) || 0;
+    b.inversion += Number(job.inversion) || 0;
+    b.ganancia += profitOf(job);
+    b.cantidad += 1;
+  }
+  return map;
+}
+
+// Suma los totales diarios entre hace `fromOffset` y `toOffsetInclusive` días
+// (0 = hoy). Se usa tanto para las tarjetas del periodo como para comparar
+// con el periodo anterior equivalente.
+function sumRangeDays(daily, fromOffset, toOffsetInclusive) {
+  const now = new Date();
+  const acc = emptyBucket();
+  for (let off = fromOffset; off <= toOffsetInclusive; off++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - off);
+    const v = daily.get(dateKeyOf(d));
+    if (!v) continue;
+    acc.ingresos += v.ingresos;
+    acc.inversion += v.inversion;
+    acc.ganancia += v.ganancia;
+    acc.cantidad += v.cantidad;
+  }
+  return acc;
+}
+
+function jobsInRange(jobs, spanDays) {
+  const now = new Date();
+  const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (spanDays - 1));
+  return jobs.filter((j) => {
+    const key = (j.fecha || "").slice(0, 10);
+    if (!key) return false;
+    const [y, m, d] = key.split("-").map(Number);
+    const jd = new Date(y, (m || 1) - 1, d || 1);
+    return jd >= cutoff;
+  });
+}
+
+function buildHourBuckets(jobs) {
+  const now = new Date();
+  const todayKeyStr = dateKeyOf(now);
+  const buckets = [];
+  for (let h = 0; h <= now.getHours(); h++) {
+    buckets.push({ key: `h${h}`, label: `${pad2(h)}:00`, ...emptyBucket() });
+  }
+  for (const job of jobs) {
+    if ((job.fecha || "").slice(0, 10) !== todayKeyStr) continue;
+    const h = new Date(job.fecha).getHours();
+    const b = buckets[h];
+    if (!b) continue;
+    b.ingresos += Number(job.costo) || 0;
+    b.inversion += Number(job.inversion) || 0;
+    b.ganancia += profitOf(job);
+    b.cantidad += 1;
+  }
+  return buckets;
+}
+
+function buildDayBuckets(daily, count) {
+  const now = new Date();
+  const buckets = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const v = daily.get(dateKeyOf(d)) || emptyBucket();
+    buckets.push({ key: dateKeyOf(d), label: dayLabelOf(d), ...v });
+  }
+  return buckets;
+}
+
+function buildWeekBuckets(daily, weeksCount) {
+  const now = new Date();
+  const buckets = [];
+  for (let w = weeksCount - 1; w >= 0; w--) {
+    const acc = emptyBucket();
+    for (let d = 0; d <= 6; d++) {
+      const dayOffset = w * 7 + d;
+      const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOffset);
+      const v = daily.get(dateKeyOf(date));
+      if (v) { acc.ingresos += v.ingresos; acc.inversion += v.inversion; acc.ganancia += v.ganancia; acc.cantidad += v.cantidad; }
+    }
+    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (w * 7 + 6));
+    buckets.push({ key: `w${w}`, label: dayLabelOf(startDate), ...acc });
+  }
+  return buckets;
+}
+
 function buildMonthly(jobs, count) {
   const now = new Date();
   const buckets = [];
   for (let i = count - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     buckets.push({
-      key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      key: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`,
       label: `${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`,
-      ingresos: 0, inversion: 0, ganancia: 0, cantidad: 0,
+      ...emptyBucket(),
     });
   }
   const byKey = Object.fromEntries(buckets.map((b) => [b.key, b]));

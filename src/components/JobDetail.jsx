@@ -39,7 +39,7 @@ export default function JobDetail({ job, onClose, onEdit, onDelete }) {
 
       <div className="detail-grid" style={{ marginBottom: 22 }}>
         <Item k="Cliente" v={job.clienteNombre} />
-        <Item k="DNI" v={job.dni} mono />
+        {job.dni && <Item k="DNI" v={job.dni} mono />}
         {job.telefono && <Item k="Teléfono" v={job.telefono} mono />}
         <Item k="Fecha y hora" v={formatDateTime(job.fecha)} />
         <Item k="Marca / Modelo" v={`${job.marca} ${job.modelo}`} />

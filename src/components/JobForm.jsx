@@ -80,7 +80,7 @@ export default function JobForm({ initial, onSaved, onCancel, notify }) {
   const validate = () => {
     const e = {};
     if (!form.fecha) e.fecha = "Requerido";
-    if (!/^\d{8}$/.test(form.dni.trim())) e.dni = "DNI de 8 dígitos";
+    if (form.dni.trim() && !/^\d{8}$/.test(form.dni.trim())) e.dni = "DNI de 8 dígitos";
     if (!form.clienteNombre.trim()) e.clienteNombre = "Requerido";
     if (!form.marca) e.marca = "Requerido";
     if (form.marca === "Otra" && !form.marcaOtra.trim()) e.marcaOtra = "Especifica la marca";
@@ -170,7 +170,7 @@ export default function JobForm({ initial, onSaved, onCancel, notify }) {
               {errors.fecha && <div className="error-text">{errors.fecha}</div>}
             </div>
             <div className="field">
-              <label>DNI del cliente <span className="req">*</span></label>
+              <label>DNI del cliente <span className="hint">opcional</span></label>
               <input type="text" inputMode="numeric" maxLength={8} placeholder="12345678" className={errors.dni ? "error" : ""}
                 value={form.dni} onChange={(e) => set("dni", e.target.value.replace(/\D/g, ""))} />
               {errors.dni && <div className="error-text">{errors.dni}</div>}
